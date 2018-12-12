@@ -19,12 +19,12 @@ package net.librec.recommender.cf.rating;
 
 import net.librec.common.LibrecException;
 import net.librec.data.convertor.appender.AuxiliaryItemDataAppender;
-import net.librec.math.structure.MatrixEntry;
-import net.librec.math.structure.SequentialAccessSparseMatrix;
+import net.librec.math.structure.*;
+import net.librec.math.structure.Vector;
 import net.librec.recommender.MatrixFactorizationRecommender;
+import net.librec.util.Lists;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * <ul>
@@ -38,13 +38,35 @@ import java.util.HashMap;
 public class PMFRecommender extends MatrixFactorizationRecommender {
 
     private HashMap<Integer, ArrayList<Integer>> itemFeature;
+    private double explicitWeight = 0.5;
+
     protected SequentialAccessSparseMatrix userInterestMatrix;
+    protected SequentialAccessSparseMatrix socialMatrix;
+
+    private int knn;
+    private SymmMatrix similarityMatrix;
+    private List<Map.Entry<Integer, Double>>[] userSimilarityList;
+    private List<Integer> userList;
+    private DenseVector userMeans;
 
     @Override
     protected void setup() throws LibrecException {
         super.setup();
-        itemFeature = ((AuxiliaryItemDataAppender) getDataModel().getDataAppender()).getItemFeature();
+        knn = conf.getInt("rec.neighbors.knn.number");
+        similarityMatrix = context.getSimilarity().getSimilarityMatrix();
+//        itemFeature = ((AuxiliaryItemDataAppender) getDataModel().getDataAppender()).getItemFeature();
+//        socialMatrix = ((SocialDataAppender)  getDataModel().getDataAppender()).getUserAppender();
+        userMeans = new VectorBasedDenseVector(numUsers);
+        userList = new ArrayList<>(numUsers);
+        for (int userIndex = 0; userIndex < numUsers; userIndex++) {
+            userList.add(userIndex);
+        }
+        userList.parallelStream().forEach(userIndex -> {
+            SequentialSparseVector userRatingVector = trainMatrix.row(userIndex);
+            userMeans.set(userIndex, userRatingVector.getNumEntries() > 0 ? userRatingVector.mean() : globalMean);
+        });
 
+        createUserSimilarityList();
     }
 
     @Override
@@ -79,5 +101,37 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
             }
             updateLRate(iter);
         }
+    }
+
+    @Override
+    protected double predict(int userIdx, int itemIdx) throws LibrecException {
+        Map.Entry<Integer, Double> simUserEntry;
+        double predictValue = 0.0D, simSum = 0.0D;
+
+        double temp1 = explicitWeight * userFactors.row(userIdx).dot(itemFactors.row(itemIdx));
+        List<Map.Entry<Integer, Double>> simList = userSimilarityList[userIdx];
+        for (int i = 0; i < simList.size(); i++) {
+            simUserEntry = simList.get(i);
+            predictValue += simUserEntry.getValue()
+                    * userFactors.row(simUserEntry.getKey()).dot(itemFactors.row(itemIdx));
+            simSum += Math.abs(simUserEntry.getValue());
+        }
+
+        double temp2 = (1 - explicitWeight) * predictValue / simSum;
+        return temp1 + temp2;
+    }
+
+    private void createUserSimilarityList() {
+        userSimilarityList = new ArrayList[numUsers];
+        SequentialAccessSparseMatrix simMatrix = similarityMatrix.toSparseMatrix();
+        userList.parallelStream().forEach(userIndex -> {
+            SequentialSparseVector similarityVector = simMatrix.row(userIndex);
+            userSimilarityList[userIndex] = new ArrayList<>(similarityVector.size());
+            for (Vector.VectorEntry simVectorEntry : similarityVector) {
+                userSimilarityList[userIndex].add(new AbstractMap.SimpleImmutableEntry<>(simVectorEntry.index(), simVectorEntry.get()));
+            }
+            userSimilarityList[userIndex] = Lists.sortListTopK(userSimilarityList[userIndex], true, knn);
+            Lists.sortListByKey(userSimilarityList[userIndex], false);
+        });
     }
 }
