@@ -6,6 +6,7 @@ text=net.librec.data.model.TextDataModel
 jdbc=net.librec.data.model.JDBCDataModel
 arff=net.librec.data.model.ArffDataModel
 #DataAppender(-appender)
+auxiliaryItem=net.librec.data.convertor.appender.AuxiliaryItemDataAppender
 social=net.librec.data.convertor.appender.SocialDataAppender
 document=net.librec.data.convertor.appender.DocumentDataAppender
 auxiliary=net.librec.data.convertor.appender.AuxiliaryDataAppender

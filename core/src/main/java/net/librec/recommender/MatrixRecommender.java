@@ -84,6 +84,7 @@ public abstract class MatrixRecommender extends AbstractRecommender {
      */
     protected double globalMean;
 
+
     protected void setup() throws LibrecException{
         super.setup();
         trainMatrix = (SequentialAccessSparseMatrix) getDataModel().getTrainDataSet();

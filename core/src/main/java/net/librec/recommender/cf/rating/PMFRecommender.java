@@ -18,8 +18,13 @@
 package net.librec.recommender.cf.rating;
 
 import net.librec.common.LibrecException;
+import net.librec.data.convertor.appender.AuxiliaryItemDataAppender;
 import net.librec.math.structure.MatrixEntry;
+import net.librec.math.structure.SequentialAccessSparseMatrix;
 import net.librec.recommender.MatrixFactorizationRecommender;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * <ul>
@@ -32,9 +37,14 @@ import net.librec.recommender.MatrixFactorizationRecommender;
  */
 public class PMFRecommender extends MatrixFactorizationRecommender {
 
+    private HashMap<Integer, ArrayList<Integer>> itemFeature;
+    protected SequentialAccessSparseMatrix userInterestMatrix;
+
     @Override
     protected void setup() throws LibrecException {
         super.setup();
+        itemFeature = ((AuxiliaryItemDataAppender) getDataModel().getDataAppender()).getItemFeature();
+
     }
 
     @Override

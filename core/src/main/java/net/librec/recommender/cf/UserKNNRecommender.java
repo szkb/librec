@@ -19,12 +19,14 @@ package net.librec.recommender.cf;
 
 import net.librec.annotation.ModelData;
 import net.librec.common.LibrecException;
+import net.librec.data.convertor.appender.AuxiliaryItemDataAppender;
 import net.librec.math.structure.*;
 import net.librec.recommender.MatrixRecommender;
 import net.librec.util.Lists;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -43,6 +45,10 @@ public class UserKNNRecommender extends MatrixRecommender {
     private List<Entry<Integer, Double>>[] userSimilarityList;
     private List<Integer> userList;
 
+    private HashMap<Integer, ArrayList<Integer>> itemFeature;
+
+
+
     /**
      * (non-Javadoc)
      *
@@ -51,6 +57,8 @@ public class UserKNNRecommender extends MatrixRecommender {
     @Override
     protected void setup() throws LibrecException {
         super.setup();
+        itemFeature = ((AuxiliaryItemDataAppender) getDataModel().getDataAppender()).getItemFeature();
+        System.out.println(itemFeature);
         knn = conf.getInt("rec.neighbors.knn.number");
         similarityMatrix = context.getSimilarity().getSimilarityMatrix();
     }
