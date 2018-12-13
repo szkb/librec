@@ -18,7 +18,8 @@
 package net.librec.recommender.cf.rating;
 
 import net.librec.common.LibrecException;
-import net.librec.data.convertor.appender.AuxiliaryItemDataAppender;
+import net.librec.data.convertor.appender.AuxiliaryDataAppender;
+import net.librec.data.model.ArffInstance;
 import net.librec.math.structure.*;
 import net.librec.math.structure.Vector;
 import net.librec.recommender.MatrixFactorizationRecommender;
@@ -35,27 +36,47 @@ import java.util.*;
  *
  * @author guoguibin and zhanghaidong
  */
+
+
 public class PMFRecommender extends MatrixFactorizationRecommender {
+    private static class ValueComparator implements Comparator<Map.Entry<Integer, Integer>> {
+        @Override
+        public int compare(Map.Entry<Integer, Integer> m, Map.Entry<Integer, Integer> n) {
+            return n.getValue() - m.getValue();
+        }
+    }
 
-    private HashMap<Integer, ArrayList<Integer>> itemFeature;
-    private double explicitWeight = 0.5;
-
-    protected SequentialAccessSparseMatrix userInterestMatrix;
-    protected SequentialAccessSparseMatrix socialMatrix;
-
+    // 用户相似度
     private int knn;
     private SymmMatrix similarityMatrix;
     private List<Map.Entry<Integer, Double>>[] userSimilarityList;
     private List<Integer> userList;
     private DenseVector userMeans;
 
+    // 用户兴趣相似度数组
+    double[][] similarity;
+    // 用户自身对物品评分占比多少
+    private double explicitWeight = 0.8;
+
+    // 还原用户的原始ID
+    private Map<Integer, String> userIdxToUserId;
+    private Map<Integer, String> itemIdxToItemId;
+
     @Override
     protected void setup() throws LibrecException {
         super.setup();
+        similarity = new double[numUsers][numUsers];
+        userIdxToUserId = context.getDataModel().getUserMappingData().inverse();
+        itemIdxToItemId = context.getDataModel().getItemMappingData().inverse();
+        try {
+            readTag();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         knn = conf.getInt("rec.neighbors.knn.number");
         similarityMatrix = context.getSimilarity().getSimilarityMatrix();
-//        itemFeature = ((AuxiliaryItemDataAppender) getDataModel().getDataAppender()).getItemFeature();
-//        socialMatrix = ((SocialDataAppender)  getDataModel().getDataAppender()).getUserAppender();
+
         userMeans = new VectorBasedDenseVector(numUsers);
         userList = new ArrayList<>(numUsers);
         for (int userIndex = 0; userIndex < numUsers; userIndex++) {
@@ -67,11 +88,43 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
         });
 
         createUserSimilarityList();
+
+
+        for (int thisUser = 0; thisUser < numUsers; thisUser++) {
+            double aboveSum = 0.0;
+            double thisPow2 = 0.0;
+            double thatPow2 = 0.0;
+            for (int thatUser = thisUser + 1; thatUser < numUsers; thatUser++) {
+                for (String tag : set) {
+                    String userA = userIdxToUserId.get(thisUser);
+                    String userB = userIdxToUserId.get(thatUser);
+
+                    double thisMinusMu = 0;
+                    double thatMinusMu = 0;
+                    if (userInformation.get(userA) != null && userInformation.get(userB) != null) {
+                        if (userInformation.get(userA).get(tag) != null && userInformation.get(userB).get(tag) != null
+                                && !Double.isNaN(meanTagNumber.get(userB)) && !Double.isNaN(meanTagNumber.get(userB))) {
+                            thisMinusMu = userInformation.get(userA).get(tag) - meanTagNumber.get(userA);
+                            thatMinusMu = userInformation.get(userB).get(tag) - meanTagNumber.get(userB);
+                        }
+                    }
+                    aboveSum += thisMinusMu * thatMinusMu;
+                    thisPow2 += thisMinusMu * thisMinusMu;
+                    thatPow2 += thatMinusMu * thatMinusMu;
+                }
+                if (thisPow2 > 0 || thatPow2 > 0) {
+                    // todo 要给它排序
+                    similarity[thisUser][thatUser] = aboveSum / (Math.sqrt(thisPow2) * Math.sqrt(thatPow2));
+                }
+            }
+        }
+
     }
 
+    // 这里迭代次数有变化
     @Override
     protected void trainModel() throws LibrecException {
-        for (int iter = 1; iter <= numIterations; iter++) {
+        for (int iter = 1; iter <= 150; iter++) {
 
             loss = 0.0d;
             for (MatrixEntry me : trainMatrix) {
@@ -112,15 +165,26 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
         List<Map.Entry<Integer, Double>> simList = userSimilarityList[userIdx];
         for (int i = 0; i < simList.size(); i++) {
             simUserEntry = simList.get(i);
-            predictValue += simUserEntry.getValue()
+//            predictValue += simUserEntry.getValue()
+            predictValue += similarity[userIdx][simUserEntry.getKey()]
                     * userFactors.row(simUserEntry.getKey()).dot(itemFactors.row(itemIdx));
-            simSum += Math.abs(simUserEntry.getValue());
+            // todo 相似度的综合
+//            simSum += Math.abs(simUserEntry.getValue());
+            simSum += Math.abs(similarity[userIdx][simUserEntry.getKey()]);
+
         }
 
-        double temp2 = (1 - explicitWeight) * predictValue / simSum;
+        double temp2 = 0;
+        if (simSum > 0) {
+            temp2 = (1 - explicitWeight) * predictValue / simSum;
+        }
         return temp1 + temp2;
     }
 
+
+    /**
+     * 求用户相似度
+     */
     private void createUserSimilarityList() {
         userSimilarityList = new ArrayList[numUsers];
         SequentialAccessSparseMatrix simMatrix = similarityMatrix.toSparseMatrix();
@@ -134,4 +198,72 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
             Lists.sortListByKey(userSimilarityList[userIndex], false);
         });
     }
+
+    // 保存全部标签
+    HashSet<String> set = new HashSet<>();
+
+    /**
+     * 读取数据
+     */
+    public void readTag() {
+        ArrayList<ArffInstance> auxiliaryData = ((AuxiliaryDataAppender) getDataModel().getDataAppender()).getAuxiliaryData();
+        HashMap<String, ArrayList<String>> userTagInformation = new HashMap<>();
+        for (ArffInstance instance : auxiliaryData) {
+            String userId = (String) instance.getValueByIndex(0);
+            String movieId = (String) instance.getValueByIndex(1);
+            String tag = (String) instance.getValueByIndex(2);
+            String timestamp = (String) instance.getValueByIndex(3);
+
+            // 保存全部标签
+            set.add(tag);
+            if (!userTagInformation.containsKey(userId)) {
+                ArrayList<String> arrayList = new ArrayList<>();
+                arrayList.add(tag);
+                userTagInformation.put(userId, arrayList);
+            } else {
+                ArrayList<String> arrayList = new ArrayList<>();
+                arrayList.add(tag);
+                arrayList.addAll(userTagInformation.get(userId));
+                userTagInformation.put(userId, arrayList);
+            }
+        }
+        // 解析数据
+        parseUserTagInformation(userTagInformation);
+    }
+
+    // 保存评价的平均标签数和所有的用户信息
+    HashMap<String, Double> meanTagNumber = new HashMap<>();
+    HashMap<String, HashMap<String, Integer>> userInformation = new HashMap<>();
+
+    public void parseUserTagInformation(HashMap<String, ArrayList<String>> userTagInformation) {
+        for (String user : userTagInformation.keySet()) {
+            ArrayList<String> tagInformation = userTagInformation.get(user);
+            HashMap<String, Integer> tagNumber = new HashMap<>();
+
+            for (String tag : tagInformation) {
+                if (!tagNumber.containsKey(tag)) {
+                    tagNumber.put(tag, 1);
+                } else {
+                    int count = tagNumber.get(tag) + 1;
+                    tagNumber.put(tag, count);
+                }
+            }
+
+            // 每一个用户的标签信息存入进去
+            userInformation.put(user, tagNumber);
+
+            // 求每一个用户使用标签的平均次数
+            int sumTagNumber = 0;
+            for (Integer value : tagNumber.values()) {
+                sumTagNumber += value;
+            }
+            if (tagNumber.size() > 0) {
+                meanTagNumber.put(user, sumTagNumber * 1.0 / tagNumber.size());
+            }
+
+        }
+
+    }
+
+
 }
