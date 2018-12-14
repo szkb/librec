@@ -35,7 +35,7 @@ import java.util.*;
  *
  * @author guoguibin and zhanghaidong
  */
-public class PMFRecommender1 extends MatrixFactorizationRecommender {
+public class PMFItemFeatureRecommender extends MatrixFactorizationRecommender {
 
     private HashMap<Integer, ArrayList<Integer>> itemFeature;
     private double explicitWeight = 0.5;

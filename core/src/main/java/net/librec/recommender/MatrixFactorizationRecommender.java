@@ -25,6 +25,9 @@ public abstract class MatrixFactorizationRecommender extends MatrixRecommender {
      */
     protected DenseMatrix itemFactors;
 
+    protected DenseMatrix impUserFactors;
+    protected DenseMatrix impItemFactors;
+
     /**
      * the number of latent factors;
      */
@@ -77,12 +80,17 @@ public abstract class MatrixFactorizationRecommender extends MatrixRecommender {
         userFactors = new DenseMatrix(numUsers, numFactors);
         itemFactors = new DenseMatrix(numItems, numFactors);
 
+        impUserFactors = new DenseMatrix(numUsers, numFactors);
+        impItemFactors = new DenseMatrix(numItems, numFactors);
+
         initMean = 0.0f;
         initStd = 0.001f;
 
         // initialize factors
         userFactors.init(initMean, initStd);
         itemFactors.init(initMean, initStd);
+        impUserFactors.init(initMean, initStd);
+        impItemFactors.init(initMean, initStd);
     }
 
     /**

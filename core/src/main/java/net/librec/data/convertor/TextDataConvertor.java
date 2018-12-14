@@ -177,6 +177,7 @@ public class TextDataConvertor extends AbstractDataConvertor {
                         break;
                     }
                     String[] eachRow = pattern.split(temp);
+//                    String[] eachRow = temp.split("::");
                     for (int i = 0; i < header.length; i++) {
                         if (Objects.equals(attr[i], "STRING")) {
                             DataFrame.setId(eachRow[i], matrix.getHeader(i));
