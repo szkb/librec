@@ -305,4 +305,6 @@ public class AuxiliaryDataAppender extends Configured implements DataAppender {
     public ArrayList<ArffInstance> getAuxiliaryData() {
         return instances;
     }
+
+
 }

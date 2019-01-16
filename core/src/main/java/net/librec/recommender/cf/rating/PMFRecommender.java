@@ -82,24 +82,24 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
             e.printStackTrace();
         }
 
-        knn = conf.getInt("rec.neighbors.knn.number");
-        similarityMatrix = context.getSimilarity().getSimilarityMatrix();
+//        knn = conf.getInt("rec.neighbors.knn.number");
+//        similarityMatrix = context.getSimilarity().getSimilarityMatrix();
+//
+//        userMeans = new VectorBasedDenseVector(numUsers);
+//        userList = new ArrayList<>(numUsers);
+//        for (int userIndex = 0; userIndex < numUsers; userIndex++) {
+//            userList.add(userIndex);
+//        }
+//        userList.parallelStream().forEach(userIndex -> {
+//            SequentialSparseVector userRatingVector = trainMatrix.row(userIndex);
+//            userMeans.set(userIndex, userRatingVector.getNumEntries() > 0 ? userRatingVector.mean() : globalMean);
+//        });
 
-        userMeans = new VectorBasedDenseVector(numUsers);
-        userList = new ArrayList<>(numUsers);
-        for (int userIndex = 0; userIndex < numUsers; userIndex++) {
-            userList.add(userIndex);
-        }
-        userList.parallelStream().forEach(userIndex -> {
-            SequentialSparseVector userRatingVector = trainMatrix.row(userIndex);
-            userMeans.set(userIndex, userRatingVector.getNumEntries() > 0 ? userRatingVector.mean() : globalMean);
-        });
-
-        createUserSimilarityList();
-
+//        createUserSimilarityList();
+//
         createUserTagSimilarityList();
 
-        createItemTagSimilarityList();
+//        createItemTagSimilarityList();
 
 
     }
@@ -370,6 +370,9 @@ public class PMFRecommender extends MatrixFactorizationRecommender {
      */
     public void readTag() {
         ArrayList<ArffInstance> auxiliaryData = ((AuxiliaryDataAppender) getDataModel().getDataAppender()).getAuxiliaryData();
+
+        System.out.println("**************");
+        System.out.println(auxiliaryData.size());
         HashMap<String, ArrayList<String>> userTagInformation = new HashMap<>();
         HashMap<String, ArrayList<String>> itemTagInformation = new HashMap<>();
 

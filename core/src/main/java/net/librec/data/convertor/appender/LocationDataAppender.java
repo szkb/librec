@@ -171,4 +171,5 @@ public class LocationDataAppender extends Configured implements DataAppender {
     public void setItemMappingData(BiMap<String, Integer> itemMappingData) {
         this.itemIds = itemMappingData;
     }
+
 }

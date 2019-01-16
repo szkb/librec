@@ -460,6 +460,10 @@ public class DataFrame implements Serializable, DataSet{
         return getInnerMapping("item");
     }
 
+    public static BiMap<String, Integer> getTagIds() {
+        return getInnerMapping("rating");
+    }
+
     public static DataFrame merge(DataFrame a, DataFrame b){
         return new DataFrame();
     }

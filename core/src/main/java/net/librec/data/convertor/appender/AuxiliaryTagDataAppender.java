@@ -1,9 +1,5 @@
 package net.librec.data.convertor.appender;
 
-/**
- * @author szkb
- * @date 2018/12/11 16:27
- */
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
@@ -24,7 +20,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class AuxiliaryItemDataAppender extends Configured implements DataAppender {
+import static net.librec.recommender.cf.rating.PMFBigItemRecommender.CAPACITY;
+
+/**
+ * @author szkb
+ * @date 2018/12/16 11:46
+ */
+
+public class AuxiliaryTagDataAppender extends Configured implements DataAppender {
 
     /**
      * The size of the buffer
@@ -52,13 +55,14 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
     private BiMap<String, Integer> itemIds;
 
     // todo 注释 这里还要初始化
-    private HashMap<Integer, ArrayList<Integer>> itemFeature = new HashMap<>();
+    private HashMap<String, ArrayList<String>> itemTagInformation = new HashMap<>(CAPACITY);
+    private HashMap<String, ArrayList<String>> userTagInformation = new HashMap<>(CAPACITY);
 
 
     /**
      * Initializes a newly created {@code SocialDataAppender} object with null.
      */
-    public AuxiliaryItemDataAppender() {
+    public AuxiliaryTagDataAppender() {
         this(null);
     }
 
@@ -68,7 +72,7 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
      *
      * @param conf {@code Configuration} object for construction
      */
-    public AuxiliaryItemDataAppender(Configuration conf) {
+    public AuxiliaryTagDataAppender(Configuration conf) {
         this.conf = conf;
     }
 
@@ -94,7 +98,7 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
      */
     private void readData(String inputDataPath) throws IOException {
         // Table {row-id, col-id, rate}
-        Table<Integer, Integer, Double> dataTable = HashBasedTable.create();
+//        Table<Integer, Integer, Double> dataTable = HashBasedTable.create();
         // BiMap {raw id, inner id} userIds, itemIds
         final List<File> files = new ArrayList<File>();
         final ArrayList<Long> fileSizeList = new ArrayList<Long>();
@@ -128,18 +132,32 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
                 int loopLength = isComplete ? bufferData.length : bufferData.length - 1;
                 for (int i = 0; i < loopLength; i++) {
                     String line = new String(bufferData[i]);
-                    ArrayList<Integer> feature = new ArrayList<>();
-                    String[] data = line.trim().split("\\|\\|");
-                    String[] str1 = data[0].trim().split("\\|");
-                    String itemId = str1[0];
-                    if (itemIds.containsKey(itemId)) {
-                        int item = itemIds.get(itemId);
-                        // todo 这里注意有两个斜杠
-                        String[] str2 = data[1].trim().split("\\|");
-                        for (int j = 1; j < str2.length; j++) {
-                            feature.add(Integer.valueOf(str2[j]));
-                        }
-                        itemFeature.put(item, feature);
+                    ArrayList<String> itemTag = new ArrayList<>();
+                    String[] data = line.trim().split("[ \t,]+");
+                    String userId = data[0];
+                    String itemId = data[1];
+                    String tag = data[2];
+
+                    if (!userTagInformation.containsKey(userId)) {
+                        ArrayList<String> arrayList = new ArrayList<>();
+                        arrayList.add(tag);
+                        userTagInformation.put(userId, arrayList);
+                    } else {
+                        ArrayList<String> arrayList = new ArrayList<>();
+                        arrayList.add(tag);
+                        arrayList.addAll(userTagInformation.get(userId));
+                        userTagInformation.put(userId, arrayList);
+                    }
+
+                    if (!itemTagInformation.containsKey(itemId)) {
+                        ArrayList<String> arrayList = new ArrayList<>();
+                        arrayList.add(tag);
+                        itemTagInformation.put(itemId, arrayList);
+                    } else {
+                        ArrayList<String> arrayList = new ArrayList<>();
+                        arrayList.add(tag);
+                        arrayList.addAll(itemTagInformation.get(itemId));
+                        itemTagInformation.put(itemId, arrayList);
                     }
 
                 }
@@ -151,15 +169,19 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
             fileRead.close();
             fis.close();
         }
-        int numRows = userIds.size(), numCols = userIds.size();
+//        int numRows = userIds.size(), numCols = userIds.size();
         // build rating matrix
-        userSocialMatrix = new SequentialAccessSparseMatrix(numRows, numCols, dataTable);
+//        userSocialMatrix = new SequentialAccessSparseMatrix(numRows, numCols, dataTable);
         // release memory of data table
-        dataTable = null;
+//        dataTable = null;
     }
 
-    public HashMap<Integer, ArrayList<Integer>> getItemFeature() {
-        return itemFeature;
+    public HashMap<String, ArrayList<String>> getItemTagInformation() {
+        return itemTagInformation;
+    }
+
+    public HashMap<String, ArrayList<String>> getUserTagInformation() {
+        return userTagInformation;
     }
     /**
      * Get user appender.
@@ -201,3 +223,4 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
 
 
 }
+

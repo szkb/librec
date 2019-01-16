@@ -1,16 +1,25 @@
 package net.librec.recommender.cf.rating;
 
 import net.librec.common.LibrecException;
-import net.librec.data.convertor.appender.AuxiliaryDataAppender;
-import net.librec.data.model.ArffInstance;
-import net.librec.math.structure.*;
-import net.librec.math.structure.Vector;
+import net.librec.data.convertor.appender.AuxiliaryTagDataAppender;
+import net.librec.math.structure.MatrixEntry;
 import net.librec.recommender.MatrixFactorizationRecommender;
-import net.librec.util.Lists;
 
 import java.util.*;
 
-public class PMFUserRecommender extends MatrixFactorizationRecommender {
+/**
+ * @author szkb
+ * @date 2019/01/13 21:42
+ */
+public class PMFUserTagRecommender extends MatrixFactorizationRecommender {
+    public final static int CAPACITY = 12000;
+
+    HashMap<String, Double> meanTagNumber = new HashMap<>();
+    HashMap<String, ArrayList<String>> userTagInformation = new HashMap<>(CAPACITY);
+
+    HashMap<String, HashMap<String, Integer>> userInformation = new HashMap<>();
+    HashMap<Integer, List<Map.Entry<Integer, Double>>> userTagSimilarity = new HashMap<>();
+
     private static class ValueComparator implements Comparator<Map.Entry<Integer, Double>> {
         @Override
         public int compare(Map.Entry<Integer, Double> m, Map.Entry<Integer, Double> n) {
@@ -23,14 +32,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
             }
         }
     }
-
-    // 用户相似度
-    private int knn;
-    private SymmMatrix similarityMatrix;
-    private List<Map.Entry<Integer, Double>>[] userSimilarityList;
-    private List<Integer> userList;
-    private DenseVector userMeans;
-
     // 用户兴趣相似度数组
     double[][] similarity;
     double[][] similarityItem;
@@ -40,41 +41,16 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
     // 还原用户的原始ID
     private Map<Integer, String> userIdxToUserId;
     private Map<Integer, String> itemIdxToItemId;
-
-    HashMap<Integer, List<Map.Entry<Integer, Double>>> userTagSimilarity = new HashMap<>();
-    // 保存评价的平均标签数和所有的用户信息
-    HashMap<String, Double> meanTagNumber = new HashMap<>();
-    HashMap<String, HashMap<String, Integer>> userInformation = new HashMap<>();
-
-
     @Override
     protected void setup() throws LibrecException {
         super.setup();
-
+        userTagInformation = ((AuxiliaryTagDataAppender) getDataModel().getDataAppender()).getUserTagInformation();
         similarity = new double[numUsers][numUsers];
         similarityItem = new double[numItems][numItems];
         userIdxToUserId = context.getDataModel().getUserMappingData().inverse();
         itemIdxToItemId = context.getDataModel().getItemMappingData().inverse();
-        try {
-            readTag();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 
-//        knn = conf.getInt("rec.neighbors.knn.number");
-//        similarityMatrix = context.getSimilarity().getSimilarityMatrix();
-//
-//        userMeans = new VectorBasedDenseVector(numUsers);
-//        userList = new ArrayList<>(numUsers);
-//        for (int userIndex = 0; userIndex < numUsers; userIndex++) {
-//            userList.add(userIndex);
-//        }
-//        userList.parallelStream().forEach(userIndex -> {
-//            SequentialSparseVector userRatingVector = trainMatrix.row(userIndex);
-//            userMeans.set(userIndex, userRatingVector.getNumEntries() > 0 ? userRatingVector.mean() : globalMean);
-//        });
-
-//        createUserSimilarityList();
+        parseUserTagInformation(userTagInformation);
 
         createUserTagSimilarityList();
 
@@ -82,7 +58,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
 
     }
 
-    // 这里迭代次数有变化
     @Override
     protected void trainModel() throws LibrecException {
         for (int iter = 1; iter <= 150; iter++) {
@@ -144,7 +119,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
         return temp1 / explicitWeight;
     }
 
-
     /**
      * 创造用户标签相似度
      */
@@ -159,7 +133,7 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
                 Set<String> common = new HashSet<>();
                 Set<String> userATag = new HashSet<>();
                 if (userInformation.get(userA) != null) {
-                    userATag =  userInformation.get(userA).keySet();
+                    userATag = userInformation.get(userA).keySet();
                 }
                 if (userInformation.get(userB) != null) {
                     for (String tag : userInformation.get(userB).keySet()) {
@@ -195,9 +169,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
         rankUserTagSimilarityList(similarity);
     }
 
-
-
-
     private void rankUserTagSimilarityList(double[][] similarity) {
         for (int i = 0; i < numUsers; i++) {
             HashMap<Integer, Double> temp = new HashMap<>();
@@ -224,63 +195,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
 
         }
     }
-
-    //
-//    /**
-//     * 求用户相似度
-//     */
-//
-    private void createUserSimilarityList() {
-        userSimilarityList = new ArrayList[numUsers];
-        SequentialAccessSparseMatrix simMatrix = similarityMatrix.toSparseMatrix();
-        userList.parallelStream().forEach(userIndex -> {
-            SequentialSparseVector similarityVector = simMatrix.row(userIndex);
-            userSimilarityList[userIndex] = new ArrayList<>(similarityVector.size());
-            for (Vector.VectorEntry simVectorEntry : similarityVector) {
-                userSimilarityList[userIndex].add(new AbstractMap.SimpleImmutableEntry<>(simVectorEntry.index(), simVectorEntry.get()));
-            }
-            userSimilarityList[userIndex] = Lists.sortListTopK(userSimilarityList[userIndex], true, knn);
-            Lists.sortListByKey(userSimilarityList[userIndex], false);
-        });
-    }
-
-    // 保存全部标签
-    HashSet<String> set = new HashSet<>();
-    HashSet<String> setItem = new HashSet<>();
-
-    /**
-     * 读取数据
-     */
-    public void readTag() {
-        ArrayList<ArffInstance> auxiliaryData = ((AuxiliaryDataAppender) getDataModel().getDataAppender()).getAuxiliaryData();
-        HashMap<String, ArrayList<String>> userTagInformation = new HashMap<>();
-
-        for (ArffInstance instance : auxiliaryData) {
-            String userId = (String) instance.getValueByIndex(0);
-            String movieId = (String) instance.getValueByIndex(1);
-            String tag = (String) instance.getValueByIndex(2);
-
-            // 保存全部标签
-            set.add(tag);
-            setItem.add(movieId);
-            if (!userTagInformation.containsKey(userId)) {
-                ArrayList<String> arrayList = new ArrayList<>();
-                arrayList.add(tag);
-                userTagInformation.put(userId, arrayList);
-            } else {
-                ArrayList<String> arrayList = new ArrayList<>();
-                arrayList.add(tag);
-                arrayList.addAll(userTagInformation.get(userId));
-                userTagInformation.put(userId, arrayList);
-            }
-
-        }
-        // 解析数据
-        parseUserTagInformation(userTagInformation);
-    }
-
-
-
 
     public void parseUserTagInformation(HashMap<String, ArrayList<String>> userTagInformation) {
         for (String user : userTagInformation.keySet()) {
@@ -311,4 +225,6 @@ public class PMFUserRecommender extends MatrixFactorizationRecommender {
         }
 
     }
+
+
 }

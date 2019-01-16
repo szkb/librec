@@ -48,4 +48,5 @@ public interface DataAppender {
      * @param itemMappingData item {raw id, inner id} map
      */
     void setItemMappingData(BiMap<String, Integer> itemMappingData);
+
 }

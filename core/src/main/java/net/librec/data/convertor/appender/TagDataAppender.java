@@ -1,9 +1,5 @@
 package net.librec.data.convertor.appender;
 
-/**
- * @author szkb
- * @date 2018/12/11 16:27
- */
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
@@ -24,7 +20,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class AuxiliaryItemDataAppender extends Configured implements DataAppender {
+/**
+ * @author szkb
+ * @date 2019/01/11 21:25
+ */
+public class TagDataAppender extends Configured implements DataAppender {
+
 
     /**
      * The size of the buffer
@@ -34,7 +35,7 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
     /**
      * a {@code SparseMatrix} object build by the social data
      */
-    private SequentialAccessSparseMatrix userSocialMatrix;
+    private SequentialAccessSparseMatrix userTagMatrix;
 
     /**
      * The path of the appender data file
@@ -51,14 +52,14 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
      */
     private BiMap<String, Integer> itemIds;
 
-    // todo 注释 这里还要初始化
-    private HashMap<Integer, ArrayList<Integer>> itemFeature = new HashMap<>();
+    private BiMap<String, Integer> tagIds;
 
+    private HashMap<String, Double> tagToIntegerMap = new HashMap<>();
 
     /**
      * Initializes a newly created {@code SocialDataAppender} object with null.
      */
-    public AuxiliaryItemDataAppender() {
+    public TagDataAppender() {
         this(null);
     }
 
@@ -68,7 +69,7 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
      *
      * @param conf {@code Configuration} object for construction
      */
-    public AuxiliaryItemDataAppender(Configuration conf) {
+    public TagDataAppender(Configuration conf) {
         this.conf = conf;
     }
 
@@ -95,6 +96,7 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
     private void readData(String inputDataPath) throws IOException {
         // Table {row-id, col-id, rate}
         Table<Integer, Integer, Double> dataTable = HashBasedTable.create();
+
         // BiMap {raw id, inner id} userIds, itemIds
         final List<File> files = new ArrayList<File>();
         final ArrayList<Long> fileSizeList = new ArrayList<Long>();
@@ -128,20 +130,19 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
                 int loopLength = isComplete ? bufferData.length : bufferData.length - 1;
                 for (int i = 0; i < loopLength; i++) {
                     String line = new String(bufferData[i]);
-                    ArrayList<Integer> feature = new ArrayList<>();
-                    String[] data = line.trim().split("\\|\\|");
-                    String[] str1 = data[0].trim().split("\\|");
-                    String itemId = str1[0];
-                    if (itemIds.containsKey(itemId)) {
-                        int item = itemIds.get(itemId);
-                        // todo 这里注意有两个斜杠
-                        String[] str2 = data[1].trim().split("\\|");
-                        for (int j = 1; j < str2.length; j++) {
-                            feature.add(Integer.valueOf(str2[j]));
-                        }
-                        itemFeature.put(item, feature);
+                    String[] data = line.trim().split("[ \t,]+");
+                    String userA = data[0];
+                    String userB = data[1];
+                    String tag = data[2];
+                    if (!tagToIntegerMap.containsKey(tag)) {
+                        int cur= tagToIntegerMap.size();
+                        tagToIntegerMap.put(tag, (cur + 1) * 1.0);
                     }
-
+                    if (userIds.containsKey(userA) && userIds.containsKey(userB)) {
+                        int row = userIds.get(userA);
+                        int col = userIds.get(userB);
+                        dataTable.put(row, col, tagToIntegerMap.get(tag));
+                    }
                 }
                 if (!isComplete) {
                     bufferLine = bufferData[bufferData.length - 1];
@@ -153,21 +154,19 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
         }
         int numRows = userIds.size(), numCols = userIds.size();
         // build rating matrix
-        userSocialMatrix = new SequentialAccessSparseMatrix(numRows, numCols, dataTable);
+        userTagMatrix = new SequentialAccessSparseMatrix(numRows, numCols, dataTable);
+        System.out.println(userTagMatrix.size());
         // release memory of data table
         dataTable = null;
     }
 
-    public HashMap<Integer, ArrayList<Integer>> getItemFeature() {
-        return itemFeature;
-    }
     /**
      * Get user appender.
      *
      * @return the {@code SparseMatrix} object built by the social data.
      */
     public SequentialAccessSparseMatrix getUserAppender() {
-        return userSocialMatrix;
+        return userTagMatrix;
     }
 
     /**
@@ -198,6 +197,5 @@ public class AuxiliaryItemDataAppender extends Configured implements DataAppende
     public void setItemMappingData(BiMap<String, Integer> itemMappingData) {
         this.itemIds = itemMappingData;
     }
-
 
 }
