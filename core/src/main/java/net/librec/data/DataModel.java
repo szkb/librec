@@ -98,7 +98,6 @@ public interface DataModel {
      */
     BiMap<String, Integer> getItemMappingData();
 
-    BiMap<String, Integer> getTagMappingData();
 
     /**
      * Get data appender.

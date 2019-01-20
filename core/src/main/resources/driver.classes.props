@@ -6,6 +6,7 @@ text=net.librec.data.model.TextDataModel
 jdbc=net.librec.data.model.JDBCDataModel
 arff=net.librec.data.model.ArffDataModel
 #DataAppender(-appender)
+auxiliaryItemTag=net.librec.data.convertor.appender.AuxiliaryItemTagAppender
 auxiliaryUserTag=net.librec.data.convertor.appender.AuxiliaryUserTagAppender
 auxiliaryItem=net.librec.data.convertor.appender.AuxiliaryItemDataAppender
 auxiliaryTag=net.librec.data.convertor.appender.AuxiliaryTagDataAppender
@@ -84,6 +85,11 @@ pnmf=net.librec.recommender.cf.ranking.PNMFRecommender
 nmfitemitem=net.librec.recommender.cf.ranking.NMFItemItemRecommender
 pmf=net.librec.recommender.cf.rating.PMFRecommender
 
+pmfsynthesis=net.librec.recommender.cf.rating.PMFSynthesisRecommender
+pmfuseritem=net.librec.recommender.cf.rating.PMFUserItemRecommender
+pmfjaccard=net.librec.recommender.cf.rating.PMFJaccardRecommender
+pmftf=net.librec.recommender.cf.rating.PMFTFRecommender
+pmfitem=net.librec.recommender.cf.rating.PMFItemRecommender
 pmfusertag=net.librec.recommender.cf.rating.PMFUserTagRecommender
 pmfsimilarity=net.librec.recommender.cf.rating.PMFSimilarityRecommender
 pmfuser=net.librec.recommender.cf.rating.PMFUserRecommender

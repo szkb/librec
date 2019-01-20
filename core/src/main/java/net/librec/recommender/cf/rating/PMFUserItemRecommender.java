@@ -12,9 +12,10 @@ import static net.librec.recommender.cf.rating.PMFBigItemRecommender.CAPACITY;
 
 /**
  * @author szkb
- * @date 2019/01/11 20:28
+ * @date 2019/01/19 17:08
  */
-public class PMFRatingRecommender extends MatrixFactorizationRecommender {
+public class PMFUserItemRecommender extends MatrixFactorizationRecommender {
+
     private static class ValueComparator implements Comparator<Map.Entry<Integer, Double>> {
         @Override
         public int compare(Map.Entry<Integer, Double> m, Map.Entry<Integer, Double> n) {
@@ -29,8 +30,6 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
     }
 
     private HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagInformation = new HashMap<>(CAPACITY);
-    private HashMap<Integer, ArrayList<Integer>> dislikeSetUser = new HashMap<>();
-    private HashMap<Integer, ArrayList<Integer>> neutralSetUser = new HashMap<>();
     private HashMap<Integer, ArrayList<Integer>> likeSetUser = new HashMap<>();
 
     private HashMap<Integer, HashMap<Integer, HashMap<String, Double>>> tagWeight = new HashMap<>();
@@ -44,10 +43,6 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
     private double[][] similarityItem;
     // 用户自身对物品评分占比多少
     private double explicitWeight = 0.8;
-
-    private double posWeight = 0.3;
-    private double negWeight = 0.3;
-    private static int count = 0;
 
     // 还原用户的原始ID
     private Map<Integer, String> userIdxToUserId;
@@ -75,6 +70,8 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
 //        createItemTagSimilarityList();
 
     }
+
+    // 这里迭代次数有变化
     @Override
     protected void trainModel() throws LibrecException {
         for (int iter = 1; iter <= 150; iter++) {
@@ -126,40 +123,6 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
             updateLRate(iter);
         }
     }
-    // 这里迭代次数有变化
-//    @Override
-//    protected void trainModel() throws LibrecException {
-//        for (int iter = 1; iter <= 150; iter++) {
-//
-//            loss = 0.0d;
-//            for (MatrixEntry me : trainMatrix) {
-//                int userId = me.row(); // user
-//                int itemId = me.column(); // item
-//                double realRating = me.get();
-//
-//                double predictRating = predict(userId, itemId);
-//                double error = realRating - predictRating;
-//
-//                loss += error * error;
-//
-//                // update factors
-//                for (int factorId = 0; factorId < numFactors; factorId++) {
-//                    double userFactor = userFactors.get(userId, factorId), itemFactor = itemFactors.get(itemId, factorId);
-//
-//                    userFactors.plus(userId, factorId, learnRate * (error * itemFactor - regUser * userFactor));
-//                    itemFactors.plus(itemId, factorId, learnRate * (error * userFactor - regItem * itemFactor));
-//
-//                    loss += regUser * userFactor * userFactor + regItem * itemFactor * itemFactor;
-//                }
-//            }
-//
-//            loss *= 0.5;
-//            if (isConverged(iter) && earlyStop) {
-//                break;
-//            }
-//            updateLRate(iter);
-//        }
-//    }
 
     @Override
     protected double predict(int userIdx, int itemIdx) throws LibrecException {
@@ -229,103 +192,10 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
 
                 double ans = above / (Math.sqrt(underThis) * Math.sqrt(underThat));
                 //</editor-fold>
-//                similarity[thisUser][thatUser] = Math.max(ans, similarity[thisUser][thatUser]);
                 similarity[thisUser][thatUser] = ans;
 
             }
         }
-
-        for (int thisUser = 0; thisUser < numUsers; thisUser++) {
-
-            for (int thatUser = thisUser + 1; thatUser < numUsers; thatUser++) {
-                //<editor-fold desc="负项目相似度">
-                Set<String> commonNeg = new HashSet<>();
-                if (negTag.containsKey(thisUser) && negTag.containsKey(thatUser)) {
-                    for (String thisTag : negTag.get(thisUser)) {
-                        if (negTag.get(thatUser).contains(thisTag)) {
-                            commonNeg.add(thisTag);
-                        }
-                    }
-                }
-                if (commonNeg.size() == 0) {
-                    continue;
-                }
-                double aboveNeg = 0.0;
-                double underThisNeg = 0.0;
-                double underThatNeg = 0.0;
-
-                for (String tag : commonNeg) {
-                    if (preferences.containsKey(thisUser) && preferences.containsKey(thatUser)) {
-                        double thisTagGrade = preferences.get(thisUser).get(tag);
-                        double thatTagGrade = preferences.get(thatUser).get(tag);
-                        aboveNeg += thisTagGrade * thatTagGrade;
-
-                        underThisNeg += thisTagGrade * thisTagGrade;
-                        underThatNeg += thatTagGrade * thatTagGrade;
-
-                    }
-
-                }
-
-                double ansNeg = aboveNeg / (Math.sqrt(underThisNeg) * Math.sqrt(underThatNeg));
-                //</editor-fold>
-
-                if (similarity[thisUser][thatUser] > 0) {
-                    similarity[thisUser][thatUser] = (ansNeg + similarity[thisUser][thatUser]) / 2;
-                } else {
-                    similarity[thisUser][thatUser] = ansNeg;
-                }
-                if (similarity[thisUser][thatUser] > 0) {
-                    // 162
-                    count++;
-                }
-            }
-        }
-
-        for (int thisUser = 0; thisUser < numUsers; thisUser++) {
-
-            for (int thatUser = thisUser + 1; thatUser < numUsers; thatUser++) {
-                //<editor-fold desc="负项目相似度">
-                Set<String> commonMid = new HashSet<>();
-                if (midTag.containsKey(thisUser) && midTag.containsKey(thatUser)) {
-                    for (String thisTag : midTag.get(thisUser)) {
-                        if (midTag.get(thatUser).contains(thisTag)) {
-                            commonMid.add(thisTag);
-                        }
-                    }
-                }
-                if (commonMid.size() == 0) {
-                    continue;
-                }
-                double aboveMid = 0.0;
-                double underThisMid = 0.0;
-                double underThatMid = 0.0;
-
-                for (String tag : commonMid) {
-                    if (preferences.containsKey(thisUser) && preferences.containsKey(thatUser)) {
-                        double thisTagGrade = preferences.get(thisUser).get(tag);
-                        double thatTagGrade = preferences.get(thatUser).get(tag);
-                        aboveMid += thisTagGrade * thatTagGrade;
-
-                        underThisMid += thisTagGrade * thisTagGrade;
-                        underThatMid += thatTagGrade * thatTagGrade;
-
-                    }
-
-                }
-
-                double ansMid = aboveMid / (Math.sqrt(underThisMid) * Math.sqrt(underThatMid));
-                //</editor-fold>
-
-                if (similarity[thisUser][thatUser] > 0) {
-                    similarity[thisUser][thatUser] = (ansMid + similarity[thisUser][thatUser]) / 2;
-                } else {
-                    similarity[thisUser][thatUser] = ansMid;
-                }
-            }
-        }
-
-
         rankUserTagSimilarityList(similarity);
     }
 
@@ -366,11 +236,8 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
     HashMap<String, HashMap<String, Integer>> itemInformation = new HashMap<>();
 
     private HashMap<Integer, HashMap<String, Double>> preferences = new HashMap<>();
-    private HashMap<Integer, HashMap<String, Double>> preferencesNeg = new HashMap<>();
-
     private HashMap<Integer, ArrayList<String>> posTag = new HashMap<>();
-    private HashMap<Integer, ArrayList<String>> negTag = new HashMap<>();
-    private HashMap<Integer, ArrayList<String>> midTag = new HashMap<>();
+
 
     public void parseTagInformation(HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagInformation) {
         for (Integer userId : tagInformation.keySet()) {
@@ -397,16 +264,8 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
             ArrayList<Integer> itemPosList = likeSetUser.get(i);
             HashMap<String, Integer> tagPosNumbers = new HashMap<>();
 
-            ArrayList<Integer> itemMidList = neutralSetUser.get(i);
-            HashMap<String, Integer> tagMidNumbers = new HashMap<>();
-            // 保存在负的项目中每个标签出现的项目总数
-            ArrayList<Integer> itemNegList = dislikeSetUser.get(i);
-            HashMap<String, Integer> tagNegNumbers = new HashMap<>();
-
             // 保存每个标签分别在正负项目用户的偏好程度
             HashMap<String, Double> tagPosGrade = new HashMap<>();
-            HashMap<String, Double> tagMidGrade = new HashMap<>();
-            HashMap<String, Double> tagNegGrade = new HashMap<>();
 
             // 用户是否有评分信息
             HashMap<Integer, HashMap<String, Double>> itemGrade = new HashMap<>();
@@ -450,75 +309,11 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
             }
             //</editor-fold>
 
-            //<editor-fold desc="遍历负项目集合">
-            if (itemNegList != null) {
-                for (Integer item : itemNegList) {
-                    HashMap<String, Double> tagPoints = new HashMap<>();
-
-                    // 项目有评分，但是不一定有标签
-                    if (itemGrade.containsKey(item)) {
-                        tagPoints = itemGrade.get(item);
-                    }
-
-
-                    for (String tag : tagPoints.keySet()) {
-
-                        if (!tagNegGrade.containsKey(tag)) {
-                            // todo
-                            tagNegGrade.put(tag, tagPoints.get(tag));
-
-                        } else {
-                            tagNegGrade.put(tag, tagNegGrade.get(tag) + tagPoints.get(tag));
-                        }
-
-                        if (tagNegNumbers.containsKey(tag)) {
-                            tagNegNumbers.put(tag, tagNegNumbers.get(tag) + 1);
-                        } else {
-                            tagNegNumbers.put(tag, 1);
-                        }
-                    }
-
-                }
-            }
-            //</editor-fold>
-
-            //<editor-fold desc="遍历负项目集合">
-            if (itemMidList != null) {
-                for (Integer item : itemMidList) {
-                    HashMap<String, Double> tagPoints = new HashMap<>();
-
-                    // 项目有评分，但是不一定有标签
-                    if (itemGrade.containsKey(item)) {
-                        tagPoints = itemGrade.get(item);
-                    }
-
-
-                    for (String tag : tagPoints.keySet()) {
-
-                        if (!tagMidGrade.containsKey(tag)) {
-                            // todo
-                            tagMidGrade.put(tag, tagPoints.get(tag));
-
-                        } else {
-                            tagMidGrade.put(tag, tagMidGrade.get(tag) + tagPoints.get(tag));
-                        }
-
-                        if (tagMidNumbers.containsKey(tag)) {
-                            tagMidNumbers.put(tag, tagMidNumbers.get(tag) + 1);
-                        } else {
-                            tagMidNumbers.put(tag, 1);
-                        }
-                    }
-
-                }
-            }
-            //</editor-fold>
 
             Set<String> allTag = new HashSet<>();
             HashMap<String, Double> allTagGrade = new HashMap<>();
             ArrayList<String> arrayListPos = new ArrayList<>();
-            ArrayList<String> arrayListNeg = new ArrayList<>();
-            ArrayList<String> arrayListMid = new ArrayList<>();
+
 
             for (String tag : tagPosGrade.keySet()) {
                 arrayListPos.add(tag);
@@ -527,61 +322,24 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
                 allTag.add(tag);
             }
 
-            for (String tag : tagNegGrade.keySet()) {
-                arrayListNeg.add(tag);
-                double ans = tagNegGrade.get(tag) / tagNegNumbers.get(tag);
-                tagNegGrade.put(tag, ans);
-                allTag.add(tag);
-            }
 
-            for (String tag : tagMidGrade.keySet()) {
-                arrayListMid.add(tag);
-                double ans = tagMidGrade.get(tag) / tagMidNumbers.get(tag);
-                tagMidGrade.put(tag, ans);
-                allTag.add(tag);
-            }
             for (String tag : allTag) {
 
-                // todo 这里的分类
-                if (tagMidGrade.containsKey(tag) && tagPosGrade.containsKey(tag)) {
-                    double ans = (tagPosGrade.get(tag) + tagMidGrade.get(tag)) / 2;
-                    allTagGrade.put(tag, ans);
-                }
+                allTagGrade.put(tag, tagPosGrade.get(tag));
 
-                if (tagMidGrade.containsKey(tag) && tagNegGrade.containsKey(tag)) {
-                    double ans = (tagNegGrade.get(tag) + tagMidGrade.get(tag)) / 2;
-                    allTagGrade.put(tag, ans);
-                }
-
-                if (tagNegGrade.containsKey(tag) && !tagMidGrade.containsKey(tag)) {
-                    allTagGrade.put(tag, tagNegGrade.get(tag));
-                }
-
-                if (!tagMidGrade.containsKey(tag) && tagPosGrade.containsKey(tag)) {
-                    allTagGrade.put(tag, tagPosGrade.get(tag));
-                }
-
-                if (tagMidGrade.containsKey(tag) && (!tagPosGrade.containsKey(tag) && !tagNegGrade.containsKey(tag))) {
-                    allTagGrade.put(tag, tagMidGrade.get(tag));
-                }
             }
             // todo 还要做负的
             if (arrayListPos.size() > 0) {
                 posTag.put(i, arrayListPos);
             }
-            if (arrayListNeg.size() > 0) {
-                negTag.put(i, arrayListNeg);
-            }
-            if (arrayListMid.size() > 0) {
-                midTag.put(i, arrayListNeg);
-            }
+
+
             if (allTagGrade.size() > 0) {
                 preferences.put(i, allTagGrade);
             }
 
             allTag = null;
             allTagGrade = null;
-            arrayListNeg = null;
             arrayListPos = null;
         }
 
@@ -596,52 +354,22 @@ public class PMFRatingRecommender extends MatrixFactorizationRecommender {
             double realRating = me.get();
 
             if (mean[userId] > 0) {
-                if (realRating > 0 && realRating <= 2) {
-                    if (!dislikeSetUser.containsKey(userId)) {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
-                        dislikeSetUser.put(userId, arrayList);
-                    } else {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
 
-                        ArrayList<Integer> listTemp = dislikeSetUser.get(userId);
-                        arrayList.addAll(listTemp);
-
-                        dislikeSetUser.put(userId, arrayList);
-
-                    }
-                } else if (realRating > 2 && realRating <= 3.5) {
-                    if (!neutralSetUser.containsKey(userId)) {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
-                        neutralSetUser.put(userId, arrayList);
-                    } else {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
-
-                        ArrayList<Integer> listTemp = neutralSetUser.get(userId);
-                        arrayList.addAll(listTemp);
-
-                        neutralSetUser.put(userId, arrayList);
-
-                    }
+                if (!likeSetUser.containsKey(userId)) {
+                    ArrayList<Integer> arrayList = new ArrayList<>();
+                    arrayList.add(itemId);
+                    likeSetUser.put(userId, arrayList);
                 } else {
-                    if (!likeSetUser.containsKey(userId)) {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
-                        likeSetUser.put(userId, arrayList);
-                    } else {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
+                    ArrayList<Integer> arrayList = new ArrayList<>();
+                    arrayList.add(itemId);
 
-                        ArrayList<Integer> listTemp = likeSetUser.get(userId);
-                        arrayList.addAll(listTemp);
+                    ArrayList<Integer> listTemp = likeSetUser.get(userId);
+                    arrayList.addAll(listTemp);
 
-                        likeSetUser.put(userId, arrayList);
+                    likeSetUser.put(userId, arrayList);
 
-                    }
                 }
+
             }
 
 

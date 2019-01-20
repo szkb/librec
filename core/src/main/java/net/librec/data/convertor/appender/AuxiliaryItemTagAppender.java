@@ -24,7 +24,7 @@ import static net.librec.recommender.cf.rating.PMFBigItemRecommender.CAPACITY;
  * @author szkb
  * @date 2019/01/10 15:10
  */
-public class AuxiliaryUserTagAppender extends Configured implements DataAppender {
+public class AuxiliaryItemTagAppender extends Configured implements DataAppender {
 
     /**
      * The size of the buffer
@@ -54,13 +54,12 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
     // todo 注释 这里还要初始化
     private HashMap<String, ArrayList<String>> itemTagInformation = new HashMap<>(CAPACITY);
     private HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagInformation = new HashMap<>(CAPACITY);
-    private HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagItemInformation = new HashMap<>(CAPACITY);
 
 
     /**
      * Initializes a newly created {@code SocialDataAppender} object with null.
      */
-    public AuxiliaryUserTagAppender() {
+    public AuxiliaryItemTagAppender() {
         this(null);
     }
 
@@ -70,7 +69,7 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
      *
      * @param conf {@code Configuration} object for construction
      */
-    public AuxiliaryUserTagAppender(Configuration conf) {
+    public AuxiliaryItemTagAppender(Configuration conf) {
         this.conf = conf;
     }
 
@@ -135,76 +134,32 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
                     String itemId = data[1];
                     String tag = data[2];
 
-                    // todo
+                    // todo 不一定这样做？？？？
                     if (!userIds.containsKey(userId) || !itemIds.containsKey(itemId)) {
                         continue;
                     }
                     int user = userIds.get(userId);
                     int item = itemIds.get(itemId);
-                    if (!tagInformation.containsKey(user)) {
-                        ArrayList<String> arrayList = new ArrayList<>();
-                        arrayList.add(tag);
-
-                        HashMap<Integer, ArrayList<String>> itemTag = new HashMap<>();
-                        itemTag.put(item, arrayList);
-                        tagInformation.put(user, itemTag);
-                        arrayList = null;
-                        itemTag = null;
-                    } else {
-                        if (!tagInformation.get(user).containsKey(item)) {
-                            ArrayList<String> arrayList = new ArrayList<>();
-                            arrayList.add(tag);
-                            HashMap<Integer, ArrayList<String>> itemTag = new HashMap<>();
-                            itemTag.put(item, arrayList);
-
-                            HashMap<Integer, ArrayList<String>> listItemTagTemp = new HashMap<>();
-                            listItemTagTemp = tagInformation.get(user);
-                            itemTag.putAll(listItemTagTemp);
-                            tagInformation.put(user, itemTag);
-
-                            arrayList = null;
-                            itemTag = null;
-                            listItemTagTemp = null;
-
-
-                        } else {
-                            ArrayList<String> arrayList = new ArrayList<>();
-                            arrayList.add(tag);
-
-                            ArrayList<String> listTemp = tagInformation.get(user).get(item);
-                            arrayList.addAll(listTemp);
-
-                            HashMap<Integer, ArrayList<String>> itemTag = new HashMap<>();
-                            itemTag.put(item, arrayList);
-                            tagInformation.put(user, itemTag);
-
-                            arrayList = null;
-                            listTemp = null;
-                            itemTag = null;
-                        }
-
-                    }
-
-                    if (!tagItemInformation.containsKey(item)) {
+                    if (!tagInformation.containsKey(item)) {
                         ArrayList<String> arrayList = new ArrayList<>();
                         arrayList.add(tag);
 
                         HashMap<Integer, ArrayList<String>> userTag = new HashMap<>();
                         userTag.put(user, arrayList);
-                        tagItemInformation.put(item, userTag);
+                        tagInformation.put(item, userTag);
                         arrayList = null;
                         userTag = null;
                     } else {
-                        if (!tagItemInformation.get(item).containsKey(user)) {
+                        if (!tagInformation.get(item).containsKey(user)) {
                             ArrayList<String> arrayList = new ArrayList<>();
                             arrayList.add(tag);
                             HashMap<Integer, ArrayList<String>> userTag = new HashMap<>();
                             userTag.put(user, arrayList);
 
                             HashMap<Integer, ArrayList<String>> listUserTagTemp = new HashMap<>();
-                            listUserTagTemp = tagItemInformation.get(item);
+                            listUserTagTemp = tagInformation.get(item);
                             userTag.putAll(listUserTagTemp);
-                            tagItemInformation.put(item, userTag);
+                            tagInformation.put(item, userTag);
 
                             arrayList = null;
                             userTag = null;
@@ -215,12 +170,12 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
                             ArrayList<String> arrayList = new ArrayList<>();
                             arrayList.add(tag);
 
-                            ArrayList<String> listTemp = tagItemInformation.get(item).get(user);
+                            ArrayList<String> listTemp = tagInformation.get(item).get(user);
                             arrayList.addAll(listTemp);
 
                             HashMap<Integer, ArrayList<String>> userTag = new HashMap<>();
                             userTag.put(user, arrayList);
-                            tagItemInformation.put(item, userTag);
+                            tagInformation.put(item, userTag);
 
                             arrayList = null;
                             listTemp = null;
@@ -228,8 +183,6 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
                         }
 
                     }
-
-
 
                 }
                 if (!isComplete) {
@@ -253,10 +206,6 @@ public class AuxiliaryUserTagAppender extends Configured implements DataAppender
 
     public HashMap<Integer, HashMap<Integer, ArrayList<String>>> getTagInformation() {
         return tagInformation;
-    }
-
-    public HashMap<Integer, HashMap<Integer, ArrayList<String>>> getTagItemInformation() {
-        return tagItemInformation;
     }
 
     /**

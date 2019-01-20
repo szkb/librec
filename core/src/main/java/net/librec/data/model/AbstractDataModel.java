@@ -261,8 +261,4 @@ public abstract class AbstractDataModel extends Configured implements DataModel 
     }
 
 
-    @Override
-    public BiMap<String, Integer> getTagMappingData(){
-        return DataFrame.getInnerMapping("rating");
-    }
 }

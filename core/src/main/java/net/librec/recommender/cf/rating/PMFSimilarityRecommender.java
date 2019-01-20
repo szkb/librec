@@ -110,8 +110,10 @@ public class PMFSimilarityRecommender extends MatrixFactorizationRecommender {
         double temp2 = 0;
         if (simSum > 0) {
             temp2 = (1 - explicitWeight) * predictValue / simSum;
+//            return temp1 + temp2;
         }
         return temp1 + temp2;
+//        return temp1 / explicitWeight;
     }
 
     private void createUserSimilarityList() {

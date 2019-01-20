@@ -42,7 +42,7 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
     private double[][] similarityItem;
     // 用户自身对物品评分占比多少
     private double explicitWeight = 0.8;
-    private double disWeight = 0.003;
+    private double disWeight = 0.001;
 
     private static int countSimilarity = 0;
     private static int countDiSimilarity = 0;
@@ -107,7 +107,7 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
                         double err = userFactor - userFactors.get(simUserEntry.getKey(), factorId);
 
                         loss += disWeight * simValue * err * err;
-                        userFactors.plus(userId, factorId, learnRate * (- disWeight * simValue * err));
+                        userFactors.plus(userId, factorId, learnRate * (-disWeight * simValue * err));
                     }
                     userFactors.plus(userId, factorId, learnRate * (error * itemFactor - regUser * userFactor));
                     itemFactors.plus(itemId, factorId, learnRate * (error * userFactor - regItem * itemFactor));
@@ -148,7 +148,9 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
         double temp2 = 0;
         if (simSum > 0) {
             temp2 = (1 - explicitWeight) * predictValue / simSum;
+//            return temp1 + temp2;
         }
+//        return temp1 / explicitWeight;
         return temp1 + temp2;
     }
 
@@ -472,6 +474,8 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
     private HashMap<Integer, ArrayList<String>> posTag = new HashMap<>();
     private HashMap<Integer, ArrayList<String>> negTag = new HashMap<>();
 
+    private Set<String> tagNumbers = new HashSet<>();
+
     public void parseTagInformation(HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagInformation) {
         for (Integer userId : tagInformation.keySet()) {
             HashMap<Integer, HashMap<String, Double>> itemTagGrade = new HashMap<>();
@@ -599,6 +603,9 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
             }
 
             for (String tag : allTag) {
+
+                // 记录标签总数量
+                tagNumbers.add(tag);
                 if (tagNegGrade.containsKey(tag) && tagPosGrade.containsKey(tag)) {
                     double ans = (tagPosGrade.get(tag) + tagNegGrade.get(tag)) / 2;
                     allTagGrade.put(tag, ans);
@@ -628,20 +635,58 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
             arrayListNeg = null;
             arrayListPos = null;
         }
-
+        System.out.println("tagNumbers:" + tagNumbers.size());
 
     }
 
 
     public void classify(SequentialAccessSparseMatrix trainMatrix) {
+        int posRatingNumber = 0;
+        int negRatingNumber = 0;
+        int RatingNumber05 = 0, RatingNumber1 = 0, RatingNumber15 = 0;
+        int RatingNumber2 = 0, RatingNumber25 = 0, RatingNumber3 = 0;
+        int RatingNumber35 = 0, RatingNumber4 = 0, RatingNumber45 = 0;
+        int RatingNumber5 = 0;
         for (MatrixEntry me : trainMatrix) {
             int userId = me.row(); // user
             int itemId = me.column(); // item
             double realRating = me.get();
+            if (realRating == 0.5) {
+                RatingNumber05++;
+            }
+            if (realRating == 1) {
+                RatingNumber1++;
+            }
+            if (realRating == 1.5) {
+                RatingNumber15++;
+            }
+            if (realRating == 2) {
+                RatingNumber2++;
+            }
+            if (realRating == 2.5) {
+                RatingNumber25++;
+            }
+            if (realRating == 3) {
+                RatingNumber3++;
+            }
+            if (realRating == 3.5) {
+                RatingNumber35++;
+            }
+            if (realRating == 4) {
+                RatingNumber4++;
+            }
+            if (realRating == 4.5) {
+                RatingNumber45++;
+            }
+            if (realRating == 5) {
+                RatingNumber5++;
+            }
+
 
             if (mean[userId] > 0) {
 //                if (realRating < mean[userId]) {
-                if (realRating < 4) {
+                if (realRating < 0) {
+                    negRatingNumber++;
                     if (!negSetUser.containsKey(userId)) {
                         ArrayList<Integer> arrayList = new ArrayList<>();
                         arrayList.add(itemId);
@@ -657,30 +702,48 @@ public class PMFClassificationRecommender extends MatrixFactorizationRecommender
 
                     }
                 } else {
-                    if (!posSetUser.containsKey(userId)) {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
-                        posSetUser.put(userId, arrayList);
-                    } else {
-                        ArrayList<Integer> arrayList = new ArrayList<>();
-                        arrayList.add(itemId);
+                    {
+                        posRatingNumber++;
+                        if (!posSetUser.containsKey(userId)) {
+                            ArrayList<Integer> arrayList = new ArrayList<>();
+                            arrayList.add(itemId);
+                            posSetUser.put(userId, arrayList);
+                        } else {
+                            ArrayList<Integer> arrayList = new ArrayList<>();
+                            arrayList.add(itemId);
 
-                        ArrayList<Integer> listTemp = posSetUser.get(userId);
-                        arrayList.addAll(listTemp);
+                            ArrayList<Integer> listTemp = posSetUser.get(userId);
+                            arrayList.addAll(listTemp);
 
-                        posSetUser.put(userId, arrayList);
+                            posSetUser.put(userId, arrayList);
 
+                        }
                     }
                 }
             }
 
 
         }
+        System.out.println("posRatingNumber：" + posRatingNumber);
+        System.out.println("negRatingNumber：" + negRatingNumber);
+        System.out.println("RatingNumber05：" + RatingNumber05);
+        System.out.println("RatingNumber1：" + RatingNumber1);
+        System.out.println("RatingNumber15：" + RatingNumber15);
+        System.out.println("RatingNumber2：" + RatingNumber2);
+        System.out.println("RatingNumber25：" + RatingNumber25);
+        System.out.println("RatingNumber3：" + RatingNumber3);
+        System.out.println("RatingNumber35：" + RatingNumber35);
+        System.out.println("RatingNumber4：" + RatingNumber4);
+        System.out.println("RatingNumber45：" + RatingNumber45);
+        System.out.println("RatingNumber5：" + RatingNumber5);
+
 
     }
 
 
     public void square() {
+        System.out.println("numUsers:" + numUsers);
+        System.out.println("numItems:" + numItems);
         for (int i = 0; i < numUsers; i++) {
             double sum1 = 0.0;
             double sum2 = 0.0;
