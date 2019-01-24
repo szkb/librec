@@ -261,6 +261,7 @@ public class PMFTFRecommender extends MatrixFactorizationRecommender {
             }
 
         }
+        System.out.println("tagAmount:" + tagAmount.size());
         int sum = 0;
         for (String tag : tagAmount.keySet()) {
             sum += tagAmount.get(tag);

@@ -85,6 +85,9 @@ pnmf=net.librec.recommender.cf.ranking.PNMFRecommender
 nmfitemitem=net.librec.recommender.cf.ranking.NMFItemItemRecommender
 pmf=net.librec.recommender.cf.rating.PMFRecommender
 
+pmfcountuser=net.librec.recommender.cf.rating.PMFCountUserRecommender
+pmfcountsynthesis=net.librec.recommender.cf.rating.PMFCountSynthesisRecommender
+pmfcountitem=net.librec.recommender.cf.rating.PMFCountItemRecommender
 pmfsynthesis=net.librec.recommender.cf.rating.PMFSynthesisRecommender
 pmfuseritem=net.librec.recommender.cf.rating.PMFUserItemRecommender
 pmfjaccard=net.librec.recommender.cf.rating.PMFJaccardRecommender

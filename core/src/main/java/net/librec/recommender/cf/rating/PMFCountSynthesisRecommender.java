@@ -14,7 +14,7 @@ import static net.librec.recommender.cf.rating.PMFBigItemRecommender.CAPACITY;
  * @author szkb
  * @date 2019/01/19 19:19
  */
-public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
+public class PMFCountSynthesisRecommender extends MatrixFactorizationRecommender {
 
 
     private static class ValueComparator implements Comparator<Map.Entry<Integer, Double>> {
@@ -51,9 +51,9 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
     // 用户自身对物品评分占比多少
     private double explicitWeight = 0.8;
 
-    private double userWeight = 0.25 * (1 - explicitWeight);
+    private double userWeight = 1 * (1 - explicitWeight);
 
-    private double itemWeight = 0.75 * (1 - explicitWeight);
+    private double itemWeight = 0 * (1 - explicitWeight);
 
     // 还原用户的原始ID
     private Map<Integer, String> userIdxToUserId;
@@ -296,6 +296,12 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
                 if (trainMatrix.get(userId, itemId) > 0) {
                     HashMap<String, Double> tagGrade = new HashMap<>();
                     for (String tag : tagInformation.get(userId).get(itemId)) {
+                        if (!tagAmount.containsKey(tag)) {
+                            tagAmount.put(tag, 1);
+                        } else {
+                            int count = tagAmount.get(tag) + 1;
+                            tagAmount.put(tag, count);
+                        }
                         double temp = 0.0;
                         if (mapRate.containsKey(userId)) {
                             temp = trainMatrix.get(userId, itemId) / mapRate.get(userId);
@@ -306,6 +312,15 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
                 }
             }
             tagWeight.put(userId, itemTagGrade);
+        }
+
+        int sum = 0;
+        for (String tag : tagAmount.keySet()) {
+            sum += tagAmount.get(tag);
+        }
+        for (Map.Entry<String, Integer> entry : tagAmount.entrySet()) {
+            double TFWeight = entry.getValue() * 1.0 / sum;
+            tagTF.put(entry.getKey(), TFWeight);
         }
 
         for (int i = 0; i < numUsers; i++) {
@@ -367,7 +382,7 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
 
             for (String tag : tagPosGrade.keySet()) {
                 arrayListPos.add(tag);
-                double ans = tagPosGrade.get(tag) / tagPosNumbers.get(tag);
+                double ans = tagPosGrade.get(tag) / tagPosNumbers.get(tag) * tagTF.get(tag);
                 tagPosGrade.put(tag, ans);
                 allTag.add(tag);
             }
@@ -533,6 +548,12 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
     private HashMap<Integer, HashMap<String, Double>> preferencesItem = new HashMap<>();
     private HashMap<Integer, ArrayList<String>> posItemTag = new HashMap<>();
 
+    HashMap<String, Integer> tagAmount = new HashMap<>();
+    HashMap<String, Double> tagTF = new HashMap<>();
+
+    HashMap<String, Integer> tagItemAmount = new HashMap<>();
+    HashMap<String, Double> tagItemTF = new HashMap<>();
+
     public void parseItemTagInformation(HashMap<Integer, HashMap<Integer, ArrayList<String>>> tagItemInformation) {
         for (Integer itemId : tagItemInformation.keySet()) {
             HashMap<Integer, HashMap<String, Double>> userTagGrade = new HashMap<>();
@@ -540,6 +561,12 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
                 if (trainMatrix.get(userId, itemId) > 0) {
                     HashMap<String, Double> tagGrade = new HashMap<>();
                     for (String tag : tagItemInformation.get(itemId).get(userId)) {
+                        if (!tagItemAmount.containsKey(tag)) {
+                            tagItemAmount.put(tag, 1);
+                        } else {
+                            int count = tagItemAmount.get(tag) + 1;
+                            tagItemAmount.put(tag, count);
+                        }
                         double temp = 0.0;
                         if (mapRateItem.containsKey(itemId)) {
                             temp = trainMatrix.get(userId, itemId) / mapRateItem.get(itemId);
@@ -550,6 +577,15 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
                 }
             }
             tagItemWeight.put(itemId, userTagGrade);
+        }
+
+        int sum = 0;
+        for (String tag : tagItemAmount.keySet()) {
+            sum += tagItemAmount.get(tag);
+        }
+        for (Map.Entry<String, Integer> entry : tagItemAmount.entrySet()) {
+            double TFWeight = entry.getValue() * 1.0 / sum;
+            tagItemTF.put(entry.getKey(), TFWeight);
         }
 
         for (int i = 0; i < numItems; i++) {
@@ -613,7 +649,7 @@ public class PMFSynthesisRecommender extends MatrixFactorizationRecommender {
 
             for (String tag : tagPosGrade.keySet()) {
                 arrayListPos.add(tag);
-                double ans = tagPosGrade.get(tag) / tagPosNumbers.get(tag);
+                double ans = tagPosGrade.get(tag) / tagPosNumbers.get(tag) * tagItemTF.get(tag);
                 tagPosGrade.put(tag, ans);
                 allTag.add(tag);
             }

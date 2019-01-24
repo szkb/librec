@@ -76,8 +76,26 @@ public class PMFUserTagRecommender extends MatrixFactorizationRecommender {
                 for (int factorId = 0; factorId < numFactors; factorId++) {
                     double userFactor = userFactors.get(userId, factorId), itemFactor = itemFactors.get(itemId, factorId);
 
+                    Map.Entry<Integer, Double> simUserEntry;
+                    double sumImpUserFactor = 0.0;
+                    double sumSimilarity = 0.0;
+                    double impUserAnswer = 0.0;
+                    List<Map.Entry<Integer, Double>> simList = userTagSimilarity.get(userId);
+                    for (int i = 0; i < simList.size(); i++) {
+                        simUserEntry = simList.get(i);
+                        double impUserFactor = userFactors.get(simUserEntry.getKey(), factorId);
+                        double impUserFactorValue = simUserEntry.getValue() * impUserFactor;
+                        sumImpUserFactor += impUserFactorValue;
+                        sumSimilarity += Math.abs(simUserEntry.getValue());
+//                        // todo 新增的参数
+//                        impItemFactors.plus(simItemEntry.getKey(), factorId, learnRate * ((1 - explicitWeight) * error * itemFactor - regUser * impItemFactor));
+//                        loss += regUser * impItemFactor * impItemFactor;
+                    }
+                    if (sumSimilarity > 0) {
+                        impUserAnswer = sumImpUserFactor / sumSimilarity;
+                    }
                     userFactors.plus(userId, factorId, learnRate * (error * itemFactor - regUser * userFactor));
-                    itemFactors.plus(itemId, factorId, learnRate * (error * userFactor - regItem * itemFactor));
+                    itemFactors.plus(itemId, factorId, learnRate * (error * (userFactor * explicitWeight + (1 - explicitWeight) * impUserAnswer) - regItem * itemFactor));
 
                     loss += regUser * userFactor * userFactor + regItem * itemFactor * itemFactor;
                 }
@@ -114,9 +132,8 @@ public class PMFUserTagRecommender extends MatrixFactorizationRecommender {
         double temp2 = 0;
         if (simSum > 0) {
             temp2 = (1 - explicitWeight) * predictValue / simSum;
-            return temp1 + temp2;
         }
-        return temp1 / explicitWeight;
+        return temp1 + temp2;
     }
 
     /**

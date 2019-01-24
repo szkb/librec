@@ -92,13 +92,13 @@ public class PMFBigItemRecommender extends MatrixFactorizationRecommender {
                     List<Map.Entry<Integer, Double>> simList = itemTagSimilarity.get(itemId);
                     for (int i = 0; i < simList.size(); i++) {
                         simItemEntry = simList.get(i);
-                        double impItemFactor = impItemFactors.get(simItemEntry.getKey(), factorId);
-                        double impItemFactorValue = simItemEntry.getValue() * impItemFactors.get(simItemEntry.getKey(), factorId);
+                        double impItemFactor = itemFactors.get(simItemEntry.getKey(), factorId);
+                        double impItemFactorValue = simItemEntry.getValue() * impItemFactor;
                         sumImpItemFactor += impItemFactorValue;
                         sumSimilarity += Math.abs(simItemEntry.getValue());
                         // todo 新增的参数
-                        impItemFactors.plus(simItemEntry.getKey(), factorId, learnRate * ((1 - explicitWeight) * error * itemFactor - regUser * impItemFactor));
-                        loss += regUser * impItemFactor * impItemFactor;
+//                        impItemFactors.plus(simItemEntry.getKey(), factorId, learnRate * ((1 - explicitWeight) * error * itemFactor - regUser * impItemFactor));
+//                        loss += regUser * impItemFactor * impItemFactor;
                     }
                     if (sumSimilarity > 0) {
                         impItemAnswer = sumImpItemFactor / sumSimilarity;
@@ -134,7 +134,7 @@ public class PMFBigItemRecommender extends MatrixFactorizationRecommender {
             predictValue += simItemEntry.getValue()
                     // todo 这里还有些问题
 //            predictValue += similarity[userIdx][simUserEntry.getKey()]
-                    * impItemFactors.row(simItemEntry.getKey()).dot(itemFactors.row(itemIdx));
+                    * itemFactors.row(simItemEntry.getKey()).dot(itemFactors.row(itemIdx));
             // todo 相似度的综合
             simSum += Math.abs(simItemEntry.getValue());
 //            simSum += Math.abs(similarity[userIdx][simUserEntry.getKey()]);
@@ -228,8 +228,11 @@ public class PMFBigItemRecommender extends MatrixFactorizationRecommender {
                     if (itemInformation.get(itemA) != null && itemInformation.get(itemB) != null) {
                         if (itemInformation.get(itemA).get(tag) != null && itemInformation.get(itemB).get(tag) != null
                                 && !Double.isNaN(meanItemTagNumber.get(itemA)) && !Double.isNaN(meanItemTagNumber.get(itemB))) {
-                            thisMinusMu = itemInformation.get(itemA).get(tag) - meanItemTagNumber.get(itemA);
-                            thatMinusMu = itemInformation.get(itemB).get(tag) - meanItemTagNumber.get(itemB);
+//                            thisMinusMu = itemInformation.get(itemA).get(tag) - meanItemTagNumber.get(itemA);
+//                            thatMinusMu = itemInformation.get(itemB).get(tag) - meanItemTagNumber.get(itemB);
+                            thisMinusMu = itemInformation.get(itemA).get(tag);
+                            thatMinusMu = itemInformation.get(itemB).get(tag);
+
                         }
                     }
                     aboveSum += thisMinusMu * thatMinusMu;

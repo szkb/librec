@@ -152,19 +152,30 @@ public class PMFJaccardRecommender extends MatrixFactorizationRecommender {
                 HashMap<String, Integer> thisTag = itemInformation.get(itemA);
                 HashMap<String, Integer> thatTag = itemInformation.get(itemB);
 
-                for (String tag : tagAmount.keySet()) {
-                    double thisAmount = 0;
+//                for (String tag : tagAmount.keySet()) {
+//                    double thisAmount = 0;
+//                    double thatAmount = 0;
+//                    if (thisTag.containsKey(tag)) {
+//                        thisAmount = thisTag.get(tag);
+//                    }
+//                    if (thatTag.containsKey(tag)) {
+//                        thatAmount = thatTag.get(tag);
+//                    }
+//
+//                    above += 2 * Math.min(thisAmount, thatAmount);
+//                    under += thisAmount + thatAmount;
+//
+//                }
+                for (String tag : thisTag.keySet()) {
+                    double thisAmount;
                     double thatAmount = 0;
-                    if (thisTag.containsKey(tag)) {
-                        thisAmount = thisTag.get(tag);
-                    }
+
+                    thisAmount = thisTag.get(tag);
                     if (thatTag.containsKey(tag)) {
                         thatAmount = thatTag.get(tag);
+                        above += 2 * Math.min(thisAmount, thatAmount);
                     }
-
-                    above += 2 * Math.min(thisAmount, thatAmount);
                     under += thisAmount + thatAmount;
-
                 }
 
                 double ans = above / under;
