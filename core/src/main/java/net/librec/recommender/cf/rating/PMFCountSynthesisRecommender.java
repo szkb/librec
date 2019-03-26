@@ -51,9 +51,9 @@ public class PMFCountSynthesisRecommender extends MatrixFactorizationRecommender
     // 用户自身对物品评分占比多少
     private double explicitWeight = 0.8;
 
-    private double userWeight = 1 * (1 - explicitWeight);
+    private double userWeight = 0.2 * (1 - explicitWeight);
 
-    private double itemWeight = 0 * (1 - explicitWeight);
+    private double itemWeight = 0.8 * (1 - explicitWeight);
 
     // 还原用户的原始ID
     private Map<Integer, String> userIdxToUserId;
